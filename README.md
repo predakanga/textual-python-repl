@@ -91,13 +91,22 @@ Host textual
     HostKeyAlias textual-python-repl
 ```
 
-Everything shares one namespace: interactive sessions, exec requests, startup scripts, and `/py` typed into Textual. Anything defined in one is visible in the others.
-
 Inside Textual:
 
 - `/py <code>` runs code and prints the output in the current window, e.g. `/py irc.selected.members[:5]`.
 - `/pyrepl` shows status: the address, active sessions, handlers, tasks, and any startup script errors.
 - **Preferences → Addons → Python REPL** turns the SSH server on or off. It also sets the address and port, shows live status and the `ssh` command, edits the authorized keys, and chooses where request replies go. Changes apply immediately, and open sessions survive a restart of the listener.
+
+### Sessions share one Python
+
+There's one Python interpreter, and it lives as long as Textual does. SSH sessions don't get their own copy: they're windows onto that shared interpreter.
+
+- **Variables are shared and persistent.** Interactive sessions, exec requests, `/py`, startup scripts and handlers all use the same global namespace. If you run `foo = 'bar'` in one session, `foo` is visible straight away in every other session, and it's still there after you disconnect and reconnect.
+- **Handlers and tasks outlive your session.** Anything registered with `@irc.on`, `@irc.filter` or `irc.spawn` keeps running after you disconnect. While you're connected, their `print()` output comes to your session. Afterwards it goes to `python-repl.log`. Use `irc.handlers` and `irc.tasks` to see what's running, and `irc.off(...)` or `irc.clear()` to remove it.
+- **Only what's running is interrupted.** Disconnecting stops any code still executing in that session, as if you'd pressed Ctrl-C. Nothing else is affected.
+- **Each interactive session has its own IPython shell.** It gets its own prompt numbering, Ctrl-C handling and REPL window. Up-arrow history is saved across sessions and restarts. IPython's history variables (`In`, `Out`, `_`, `_1`, …) live in the shared namespace, so they reflect whichever session ran something most recently.
+- **One piece of code runs at a time.** If another session is busy, yours waits, and tells you so.
+- **Restarting Textual starts afresh.** To recreate handlers and state at launch, use [startup scripts](#startup-scripts).
 
 ### REPL windows
 
