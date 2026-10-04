@@ -1,0 +1,93 @@
+name: Release
+
+# Push a tag matching VERSION (e.g. v0.2.0) to publish a release.
+#
+# Optional secrets for a signed and notarized release; without them the
+# release is ad-hoc signed:
+#   MACOS_CERTIFICATE           base64 .p12 holding a "Developer ID Application" certificate
+#   MACOS_CERTIFICATE_PASSWORD  its password
+#   SIGN_IDENTITY               e.g. "Developer ID Application: Name (TEAMID)"
+#   APPLE_ID, APPLE_TEAM_ID, APPLE_APP_PASSWORD   for notarization
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      SIGNING: ${{ secrets.MACOS_CERTIFICATE != '' }}
+      NOTARIZING: ${{ secrets.APPLE_APP_PASSWORD != '' }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check the tag matches VERSION
+        run: test "v$(cat VERSION)" = "$GITHUB_REF_NAME"
+
+      - name: Cache downloads
+        uses: actions/cache@v4
+        with:
+          path: .cache
+          key: downloads-${{ runner.os }}-${{ hashFiles('Makefile', 'requirements.txt') }}
+          restore-keys: downloads-${{ runner.os }}-
+
+      - name: Import signing certificate
+        if: env.SIGNING == 'true'
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          password="$(uuidgen)"
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          echo "$MACOS_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security import "$RUNNER_TEMP/certificate.p12" -P "$MACOS_CERTIFICATE_PASSWORD" -A -f pkcs12 -k "$keychain"
+          security set-key-partition-list -S apple-tool:,apple: -k "$password" "$keychain" > /dev/null
+          read -ra existing <<< "$(security list-keychains -d user | tr -d '"' | xargs)"
+          security list-keychains -d user -s "$keychain" "${existing[@]}"
+          rm "$RUNNER_TEMP/certificate.p12"
+
+      - name: Build and test
+        env:
+          SIGN_IDENTITY: ${{ env.SIGNING == 'true' && secrets.SIGN_IDENTITY || '-' }}
+        run: |
+          make SIGN_IDENTITY="$SIGN_IDENTITY"
+          make test
+
+      - name: Package
+        env:
+          SIGN_IDENTITY: ${{ env.SIGNING == 'true' && secrets.SIGN_IDENTITY || '-' }}
+        run: make dist SIGN_IDENTITY="$SIGN_IDENTITY"
+
+      - name: Notarize
+        if: env.SIGNING == 'true' && env.NOTARIZING == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        # A zip can't be stapled; Gatekeeper checks the notarization online instead.
+        run: |
+          xcrun notarytool submit build/*.zip --wait \
+            --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD"
+
+      - name: Release notes
+        run: |
+          version="$(cat VERSION)"
+          awk -v heading="## [$version]" '
+            index($0, heading) == 1 { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          test -s "$RUNNER_TEMP/notes.md" || { echo "No CHANGELOG.md entry for $version" >&2; exit 1; }
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" build/*.zip --title "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md"

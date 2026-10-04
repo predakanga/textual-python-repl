@@ -1,0 +1,24 @@
+# Not a Python package: this only configures tooling. The plugin is built
+# with `make`; see README.md.
+
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+extend-exclude = ["build", ".cache"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "I", "UP", "SIM", "RUF"]
+ignore = [
+    "B904",    # raise ... from inside except: not always wanted
+    "SIM105",  # contextlib.suppress: try/except/pass reads fine
+    "RUF001",  # ambiguous unicode characters: "…" and "—" are deliberate
+    "RUF002",
+    "RUF003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Startup scripts run in the REPL namespace, where `irc` is predefined.
+"examples/*" = ["F821"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["textual_repl"]

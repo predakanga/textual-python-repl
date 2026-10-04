@@ -1,0 +1,6 @@
+# Runtime dependencies bundled into PythonREPL.bundle.
+# After editing, regenerate the lock file with `make lock`.
+ipython>=9,<10
+asyncssh>=2.21,<3
+pyobjc-core>=12
+pyobjc-framework-Cocoa>=12

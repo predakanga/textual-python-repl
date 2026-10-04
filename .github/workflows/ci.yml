@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+      - name: Lint
+        run: make lint
+
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Cache downloads
+        uses: actions/cache@v4
+        with:
+          path: .cache
+          key: downloads-${{ runner.os }}-${{ hashFiles('Makefile', 'requirements.txt') }}
+          restore-keys: downloads-${{ runner.os }}-
+
+      - name: Build
+        run: make
+
+      - name: Test
+        run: make test V=1
+
+      - name: Test under the App Sandbox
+        run: make test-sandbox V=1
+
+      - name: Package
+        run: make dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TextualPythonREPL
+          path: build/*.zip
+          if-no-files-found: error

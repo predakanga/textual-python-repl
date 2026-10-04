@@ -1,0 +1,34 @@
+name: Bug report
+description: Something isn't working
+labels: [bug]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ssh -p 2323 127.0.0.1 '...'
+        2. ...
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Plugin (`/pyrepl` or `textual_repl.__version__`), Textual, and macOS
+      placeholder: plugin 0.1.0, Textual 7.2.7, macOS 26.6
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: >
+        Relevant lines from `python-repl.log` (Preferences → Addons → Python REPL → Show Support Folder), or the crash
+        report if Textual crashed.
+      render: text
