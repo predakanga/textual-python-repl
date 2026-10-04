@@ -235,6 +235,14 @@ The REPL runs arbitrary Python as Textual. That code can send anything to any co
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) to build, test and change it.
 
+### Overhead
+
+Python starts when Textual loads the plugin, not on first use. The SSH server runs in Python, and startup scripts are meant to start automations when Textual launches, so both need it running from the start. The cost is small. These figures were measured in the test harness on an Apple silicon Mac:
+
+- **Startup:** about 0.3 seconds, on a background thread, so Textual's launch isn't delayed.
+- **Memory:** about 25 MB more once settled. It peaks around 90 MB briefly while IPython and asyncssh are imported.
+- **Idle CPU:** none measurable. The event loops sleep until something happens. Python isn't called for incoming IRC lines unless you've registered a handler, filter or `wait_for`.
+
 ## License
 
 BSD 3-Clause, the same licence as Textual. See [LICENSE](LICENSE). This project isn't affiliated with Codeux Software.
