@@ -159,6 +159,21 @@ class Harness:
         with self._changed:
             return len(self.lines)
 
+    def settle(self, quiet: float = 0.5, timeout: float = 10.0) -> None:
+        """Wait until the harness has printed nothing for ``quiet`` seconds.
+
+        Output from earlier tests (e.g. lines printed into REPL windows) is
+        delivered asynchronously; settle first so it isn't mistaken for ours.
+        """
+        deadline = time.monotonic() + timeout
+        count = self.mark()
+        while time.monotonic() < deadline:
+            time.sleep(quiet)
+            latest = self.mark()
+            if latest == count:
+                return
+            count = latest
+
     def expect(self, pattern: str, since: int = 0, timeout: float = 10.0) -> re.Match:
         """Wait for a harness output line matching ``pattern`` (after ``since``)."""
         regex = re.compile(pattern)
