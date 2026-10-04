@@ -91,6 +91,12 @@ static NSTextField *TPIHelpLabel(NSString *text)
 		[weakSelf viewMovedToWindow:window];
 	};
 
+	/* Textual's preferences window resizes itself to fit its content's
+	 constraints. Without these the pane's fitting height is zero, and the
+	 window shrinks to its minimum height, cutting the pane off. */
+	[view.widthAnchor constraintEqualToConstant:TPIPreferencesPaneSize.width].active = YES;
+	[view.heightAnchor constraintEqualToConstant:TPIPreferencesPaneSize.height].active = YES;
+
 	/* SSH server */
 	self.enabledCheckbox = [NSButton checkboxWithTitle:@"Run the SSH server" target:self action:@selector(controlChanged:)];
 

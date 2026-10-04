@@ -76,6 +76,16 @@ class PaneTests(unittest.TestCase):
         self.assertEqual(header[:8], b"\x89PNG\r\n\x1a\n")
         return struct.unpack(">II", header[16:24])
 
+    def test_pane_constraints_define_its_size(self):
+        # Regression: Textual's preferences window sizes itself to fit its
+        # content's constraints. The pane's fitting height used to be 0, so the
+        # window shrank to its minimum height and cut the pane off.
+        size = self.h.eval(
+            "on_main(lambda: tuple(objc.lookUpClass('TPI_PythonREPL').alloc().init()"
+            ".pluginPreferencesPaneView().fittingSize()))"
+        )
+        self.assertEqual(size, "(670.0, 470.0)")
+
     def test_pane_renders_in_light_and_dark_mode(self):
         for name in ("pane-light.png", "pane-dark.png"):
             width, height = self.snapshot(name)
